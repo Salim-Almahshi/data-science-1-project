@@ -6,11 +6,15 @@ from surprise import Dataset
 from surprise.model_selection import train_test_split
 from sklearn.metrics import ndcg_score
 
+import streamlit as st
 
-def get_top_n(predictions, n):
+
+def get_top_n(predictions, n, k):
     top_n = defaultdict(list)
     for uid, iid, true_r, est, _ in predictions:
-        top_n[uid].append((iid, est))
+        # filter by threshold
+        if est >= k:
+            top_n[uid].append((iid, est))
 
     for uid, user_ratings in top_n.items():
         user_ratings.sort(key=lambda x: x[1], reverse=True)
@@ -56,58 +60,116 @@ def calc_ndcg(top_n, testset_items_per_user, n):
     return ndcg_score(y_trues, y_scores, k=None)
 
 
-if __name__ == '__main__':
-    # movielens-100k dataset
-    data = Dataset.load_builtin("ml-100k")
+@st.cache
+def load_data(name, random_state):
+    data = []
+
+    # load MovieLens
+    if name == "MovieLens":
+        data = Dataset.load_builtin("ml-100k")
+
+    # TODO rest of datasets...
 
     # split data in train test
-    trainset, testset = train_test_split(data, test_size=0.3)
+    trainset, testset = train_test_split(data, test_size=0.3, random_state=random_state)
 
     # reformat to user -> item -> score
     testset_items_per_user = get_testset_items_per_user(testset)
 
-    # SVD
-    algos = [
-        # SVD
-        (
-            "SVD",
-            SVD(n_factors=100,
-                n_epochs=20,
-                biased=True,
-                init_mean=0,
-                init_std_dev=0.1,
-                lr_all=0.005,
-                reg_all=0.02,
-                verbose=True)
-        ),
+    return trainset, testset, testset_items_per_user
 
-        # KNN
-        (
-            "KNN",
-            KNNBasic(k=40,
-                     min_k=1,
-                     verbose=True)
-        )
-    ]
 
-    # train algos
-    for name, algo in algos:
-        print(name)
+@st.cache(suppress_st_warning=True)
+def train_model(settings, trainset):
+    algos = {}
+
+    for algo_name in settings:
+        algo = {}
+
+        if algo_name == "SVD":
+            algo = SVD(n_factors=settings["SVD"]["n_factors"],
+                       n_epochs=settings["SVD"]["n_epochs"],
+                       biased=settings["SVD"]["biased"],
+                       init_mean=settings["SVD"]["init_mean"],
+                       init_std_dev=settings["SVD"]["init_std_dev"],
+                       lr_all=settings["SVD"]["lr_all"],
+                       reg_all=settings["SVD"]["reg_all"],
+                       verbose=False)
+
+        elif algo_name == "KNNBasic":
+            algo = KNNBasic(k=settings["KNNBasic"]["k"],
+                            min_k=settings["KNNBasic"]["min_k"],
+                            verbose=False)
+
+        algos[algo_name] = algo
+
         algo.fit(trainset)
 
-    # test, limit to top N
-    n = 10
+    return algos
 
-    for name, algo in algos:
-        # get item predictions
-        predictions = algo.test(testset)
 
-        # get top n predictions
-        top_n = get_top_n(predictions, n=n)
+# set page title
+st.title("Data Science 1 Project SS2021")
 
-        # calculate ndcg
-        ndcg = calc_ndcg(top_n, testset_items_per_user, n=n)
+# add options to sidebar
+st.sidebar.subheader("Options")
 
-        print("NDCG", name, ndcg)
+# dataset selection, can only select on
+option_dataset = st.sidebar.selectbox("Dataset", ["MovieLens", "BookCrossing"])
+option_random_state = st.sidebar.number_input("Random state", min_value=0)
 
-    print("done")
+# evaluation settings
+option_n = st.sidebar.number_input("Top N recommendations", min_value=1, value=5)
+option_k = st.sidebar.number_input("Recommendation prediction threshold", min_value=0.0, max_value=1.0, value=0.5)
+
+# algo selection, can select multiple
+option_algos = st.sidebar.multiselect("Algorithms", ["SVD", "KNNBasic"])
+
+# add algo settings to sidebar, depending on selected algo
+options_algo_settings = {}
+for algo in option_algos:
+    st.sidebar.subheader(algo)
+
+    if algo == "SVD":
+        options_algo_settings[algo] = {
+            "n_factors": st.sidebar.number_input("n factors", min_value=1, value=100, key=algo+"_n_factors_option_input"),
+            "n_epochs": st.sidebar.number_input("n epochs", min_value=1, value=20, key=algo+"_min_n_epochs_option_input"),
+            "biased": st.sidebar.checkbox("biased", value=True, key=algo+"_biased_option_input"),
+            "init_mean": st.sidebar.number_input("init mean", value=0.0, key=algo+"_init_mean_epochs_option_input"),
+            "init_std_dev": st.sidebar.number_input("init std dev", value=0.1, key=algo+"_init_std_dev_epochs_option_input"),
+            "lr_all": st.sidebar.number_input("lr all", value=0.005, key=algo+"_lr_all_epochs_option_input"),
+            "reg_all": st.sidebar.number_input("reg all", value=0.02, key=algo+"_reg_all_epochs_option_input"),
+        }
+
+    elif algo == "KNNBasic":
+        options_algo_settings[algo] = {
+            "k": st.sidebar.number_input("k", min_value=1, value=40, key=algo+"_k_option_input"),
+            "min_k": st.sidebar.number_input("min k", min_value=1, value=1, key=algo+"_min_k_option_input")
+        }
+
+st.subheader("Algorithms:")
+st.write(", ".join(option_algos))
+
+st.subheader("Dataset:")
+
+# movielens-100k dataset
+trainset, testset, testset_items_per_user = load_data(option_dataset, option_random_state)
+st.write(option_dataset)
+
+# train models
+algos = train_model(options_algo_settings, trainset)
+
+# evaluate algos
+for algo in algos:
+    st.write("Evaluating", algo)
+
+    # get item predictions
+    predictions = algos[algo].test(testset)
+
+    # get top n predictions
+    top_n = get_top_n(predictions, n=option_n, k=option_k)
+
+    # calculate ndcg
+    ndcg = calc_ndcg(top_n, testset_items_per_user, n=option_n)
+
+    st.write("NDCG", ndcg)
