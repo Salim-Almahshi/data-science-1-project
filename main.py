@@ -1,7 +1,8 @@
 from collections import defaultdict
+from copy import deepcopy
 
 import numpy as np
-from surprise import SVD, KNNBasic
+from surprise import SVD, KNNBasic, KNNWithZScore
 from surprise import Dataset
 from surprise.model_selection import train_test_split
 from sklearn.metrics import ndcg_score
@@ -76,7 +77,11 @@ def load_data(name, random_state):
     # reformat to user -> item -> score
     testset_items_per_user = get_testset_items_per_user(testset)
 
-    return trainset, testset, testset_items_per_user
+    return {
+        "trainset": trainset,
+        "testset": testset,
+        "testset_items_per_user": testset_items_per_user
+    }
 
 
 @st.cache(suppress_st_warning=True)
@@ -101,6 +106,16 @@ def train_model(settings, trainset):
                             min_k=settings["KNNBasic"]["min_k"],
                             verbose=False)
 
+        elif algo_name == "KNNWithZScore":
+            algo = KNNWithZScore(k=settings["KNNWithZScore"]["k"],
+                                 min_k=settings["KNNWithZScore"]["min_k"],
+                                 sim_options={
+                                     "name": settings["KNNWithZScore"]["sim_name"],
+                                     "user_based": settings["KNNWithZScore"]["sim_user_based"],
+                                     "min_support": settings["KNNWithZScore"]["sim_min_support"],
+                                     "shrinkage": settings["KNNWithZScore"]["sim_shrinkage"]
+                                })
+
         algos[algo_name] = algo
 
         algo.fit(trainset)
@@ -123,7 +138,7 @@ option_n = st.sidebar.number_input("Top N recommendations", min_value=1, value=5
 option_k = st.sidebar.number_input("Recommendation prediction threshold", min_value=0.0, max_value=1.0, value=0.5)
 
 # algo selection, can select multiple
-option_algos = st.sidebar.multiselect("Algorithms", ["SVD", "KNNBasic"])
+option_algos = st.sidebar.multiselect("Algorithms", ["SVD", "KNNBasic", "KNNWithZScore"])
 
 # add algo settings to sidebar, depending on selected algo
 options_algo_settings = {}
@@ -147,29 +162,38 @@ for algo in option_algos:
             "min_k": st.sidebar.number_input("min k", min_value=1, value=1, key=algo+"_min_k_option_input")
         }
 
+    elif algo == "KNNWithZScore":
+        options_algo_settings[algo] = {
+            "k": st.sidebar.number_input("k", min_value=1, value=40, key=algo+"_k_option_input"),
+            "min_k": st.sidebar.number_input("min k", min_value=1, value=1, key=algo+"_min_k_option_input"),
+            "sim_name": st.sidebar.selectbox("similarity measure", ["msd", "cosine", "pearson", "pearson_baseline"], key=algo+"_sim_name_option_input"),
+            "sim_user_based": st.sidebar.checkbox("user based", value=True, key=algo+"_sim_user_based_option_input"),
+            # TODO default value?
+            "sim_min_support": st.sidebar.number_input("min support", min_value=1, value=1, key=algo+"_sim_min_support_option_input"),
+            "sim_shrinkage": st.sidebar.number_input("shrinkage", min_value=1, value=100, key=algo+"_sim_shrinkage_option_input"),
+        }
+
+st.subheader("Dataset:")
+st.write(option_dataset)
+
+data = deepcopy(load_data(option_dataset, option_random_state))
+
 st.subheader("Algorithms:")
 st.write(", ".join(option_algos))
 
-st.subheader("Dataset:")
-
-# movielens-100k dataset
-trainset, testset, testset_items_per_user = load_data(option_dataset, option_random_state)
-st.write(option_dataset)
-
-# train models
-algos = train_model(options_algo_settings, trainset)
+algos = train_model(options_algo_settings, data["trainset"])
 
 # evaluate algos
 for algo in algos:
     st.write("Evaluating", algo)
 
     # get item predictions
-    predictions = algos[algo].test(testset)
+    predictions = algos[algo].test(data["testset"])
 
     # get top n predictions
     top_n = get_top_n(predictions, n=option_n, k=option_k)
 
     # calculate ndcg
-    ndcg = calc_ndcg(top_n, testset_items_per_user, n=option_n)
+    ndcg = calc_ndcg(top_n, data["testset_items_per_user"], n=option_n)
 
     st.write("NDCG", ndcg)
