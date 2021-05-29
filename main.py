@@ -1,6 +1,7 @@
 from collections import defaultdict
 from copy import deepcopy
 
+import pandas as pd
 import numpy as np
 from surprise import SVD, KNNBasic, KNNWithZScore
 from surprise import Dataset
@@ -71,6 +72,10 @@ def load_data(name, random_state):
 
     # TODO rest of datasets...
 
+    # load Restaurant Data : there is a problem with loading the data
+    # if name == "Restaurant":
+    #     data = pd.read_csv("rating_final.csv")
+
     # split data in train test
     trainset, testset = train_test_split(data, test_size=0.3, random_state=random_state)
 
@@ -131,6 +136,7 @@ st.sidebar.subheader("Options")
 
 # dataset selection, can only select on
 option_dataset = st.sidebar.selectbox("Dataset", ["MovieLens", "BookCrossing"])
+# option_dataset = st.sidebar.selectbox("Dataset", ["MovieLens", "BookCrossing", "Restaurant"])
 option_random_state = st.sidebar.number_input("Random state", min_value=0)
 
 # evaluation settings
