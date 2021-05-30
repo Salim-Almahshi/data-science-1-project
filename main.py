@@ -10,6 +10,9 @@ from sklearn.metrics import ndcg_score
 
 import streamlit as st
 
+# to debug in PyCharm see:
+# https://stackoverflow.com/questions/60172282/how-to-run-debug-a-streamlit-application-from-an-ide
+
 
 def get_top_n(predictions, n, k):
     top_n = defaultdict(list)
@@ -64,11 +67,26 @@ def calc_ndcg(top_n, testset_items_per_user, n):
 
 @st.cache
 def load_data(name, random_state):
+    # data from Surprise data loader
     data = []
+
+    # pandas dataframe containing the data for visualizing
+    # should contain rows of "user, item, rating, timestamp"
+    dataframe = []
 
     # load MovieLens
     if name == "MovieLens":
-        data = Dataset.load_builtin("ml-100k")
+        # load raw data via buildin surprise loader
+        data = Dataset.load_builtin("ml-1m")
+        # data = Dataset.load_builtin("ml-100k")
+
+        # extract raw ratings to datframe for visualization
+        # raw ratings are tuples of (user, item, rating, timestamp)
+        dataframe = pd.DataFrame(data.raw_ratings, columns=["user", "item", "rating", "timestamp"])
+
+        # convert timestamp to date
+        dataframe['timestamp'] = pd.to_numeric(dataframe['timestamp'])
+        dataframe['timestamp'] = pd.to_datetime(dataframe['timestamp'], unit='s')
 
     # TODO rest of datasets...
 
@@ -85,7 +103,8 @@ def load_data(name, random_state):
     return {
         "trainset": trainset,
         "testset": testset,
-        "testset_items_per_user": testset_items_per_user
+        "testset_items_per_user": testset_items_per_user,
+        "dataframe": dataframe
     }
 
 
@@ -183,6 +202,11 @@ st.subheader("Dataset:")
 st.write(option_dataset)
 
 data = deepcopy(load_data(option_dataset, option_random_state))
+
+# show dataset stats
+st.write(data["dataframe"])
+st.write(data["dataframe"].describe(include='all'))
+
 
 st.subheader("Algorithms:")
 st.write(", ".join(option_algos))
