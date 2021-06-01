@@ -78,8 +78,8 @@ def load_data(name, random_state):
     # load MovieLens
     if name == "MovieLens":
         # load raw data via buildin surprise loader
-        data = Dataset.load_builtin("ml-1m")
-        # data = Dataset.load_builtin("ml-100k")
+        # data = Dataset.load_builtin("ml-1m")
+        data = Dataset.load_builtin("ml-100k", prompt=False)
 
         # extract raw ratings to datframe for visualization
         # raw ratings are tuples of (user, item, rating, timestamp)
