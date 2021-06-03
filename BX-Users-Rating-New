@@ -1,9 +1,0 @@
-import pandas as pd
-
-
-xlsx = pd.ExcelFile('E:\Goethe 11-4-2021\Erste Semester\Data Science 1\project\Dateset\BX-Users-Rating-New.xlsx')
-df = pd.read_excel(xlsx, 'Sheet1')
-
-# get dataframe from context object
-with pd.ExcelFile('E:\Goethe 11-4-2021\Erste Semester\Data Science 1\project\Dateset\BX-Users-Rating-New.xlsx') as xls:
-   
