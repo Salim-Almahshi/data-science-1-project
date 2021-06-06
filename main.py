@@ -98,6 +98,12 @@ def load_data(name, random_state):
         data = Dataset.load_from_df(dataframe[["userID", "placeID", "rating"]], reader = reader)
 
 
+    # load Bookcrossing Data
+    if name == "BookCrossing":
+        reader = Reader(rating_scale=(0, 10))
+        dataframe = pd.read_excel('BX-Users-Rating-New.xlsx', index_col=0)
+        data = Dataset.load_from_df(dataframe[["User-ID", "ISBN", "Book-Rating"]], reader=reader)
+
     # split data in train test
     trainset, testset = train_test_split(data, test_size=0.3, random_state=random_state)
 
