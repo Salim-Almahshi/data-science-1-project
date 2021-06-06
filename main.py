@@ -101,7 +101,7 @@ def load_data(name, random_state):
     # load Bookcrossing Data
     if name == "BookCrossing":
         reader = Reader(rating_scale=(0, 10))
-        dataframe = pd.read_excel('BX-Users-Rating-New.xlsx', index_col=0)
+        dataframe = pd.read_excel('BX-Users-Rating-New.xlsx')
         data = Dataset.load_from_df(dataframe[["User-ID", "ISBN", "Book-Rating"]], reader=reader)
 
     # split data in train test
@@ -138,6 +138,12 @@ def train_model(settings, trainset):
         elif algo_name == "KNNBasic":
             algo = KNNBasic(k=settings["KNNBasic"]["k"],
                             min_k=settings["KNNBasic"]["min_k"],
+                            sim_options={
+                                "name": settings["KNNBasic"]["sim_name"],
+                                "user_based": settings["KNNBasic"]["sim_user_based"],
+                                "min_support": settings["KNNBasic"]["sim_min_support"],
+                                "shrinkage": settings["KNNBasic"]["sim_shrinkage"]
+                            },
                             verbose=False)
 
         elif algo_name == "KNNWithZScore":
