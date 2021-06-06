@@ -3,9 +3,7 @@ from copy import deepcopy
 
 import pandas as pd
 import numpy as np
-from surprise import SVD, KNNBasic, KNNWithZScore
-from surprise import Dataset
-from surprise import Reader
+from surprise import SVD, KNNBasic, KNNWithZScore, Dataset, Reader, accuracy
 from surprise.model_selection import train_test_split
 from sklearn.metrics import ndcg_score
 
@@ -235,6 +233,7 @@ st.write(", ".join(option_algos))
 algos = train_model(options_algo_settings, data["trainset"])
 
 # evaluate algos
+metrics = {}
 for algo in algos:
     st.write("Evaluating", algo)
 
@@ -244,7 +243,14 @@ for algo in algos:
     # get top n predictions
     top_n = get_top_n(predictions, n=option_n, k=option_k)
 
-    # calculate ndcg
-    ndcg = calc_ndcg(top_n, data["testset_items_per_user"], n=option_n)
+    # calculate metrics
+    metrics[algo] = {
+        "ndcg": calc_ndcg(top_n, data["testset_items_per_user"], n=option_n),
+        "mse": accuracy.mse(predictions),
+        "rmse": accuracy.rmse(predictions),
+        "mae": accuracy.mae(predictions),
+        "fcp": accuracy.fcp(predictions)
+    }
 
-    st.write("NDCG", ndcg)
+all_metrics = pd.DataFrame(metrics)
+st.write(all_metrics)
