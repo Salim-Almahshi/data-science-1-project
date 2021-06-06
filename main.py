@@ -188,7 +188,12 @@ for algo in option_algos:
     elif algo == "KNNBasic":
         options_algo_settings[algo] = {
             "k": st.sidebar.number_input("k", min_value=1, value=40, key=algo+"_k_option_input"),
-            "min_k": st.sidebar.number_input("min k", min_value=1, value=1, key=algo+"_min_k_option_input")
+            "min_k": st.sidebar.number_input("min k", min_value=1, value=1, key=algo+"_min_k_option_input"),
+            "sim_name": st.sidebar.selectbox("similarity measure", ["msd", "cosine", "pearson", "pearson_baseline"], key=algo+"_sim_name_option_input"),
+            "sim_user_based": st.sidebar.checkbox("user based", value=True, key=algo+"_sim_user_based_option_input"),
+            # TODO default value?
+            "sim_min_support": st.sidebar.number_input("min support", min_value=1, value=1, key=algo+"_sim_min_support_option_input"),
+            "sim_shrinkage": st.sidebar.number_input("shrinkage", min_value=1, value=100, key=algo+"_sim_shrinkage_option_input"),
         }
 
     elif algo == "KNNWithZScore":
