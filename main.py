@@ -3,6 +3,7 @@ from copy import deepcopy
 
 import pandas as pd
 import numpy as np
+import matplotlib.pyplot as plt
 from surprise import SVD, KNNBasic, KNNWithZScore, Dataset, Reader, accuracy
 from surprise.model_selection import train_test_split
 from sklearn.metrics import ndcg_score
@@ -87,20 +88,26 @@ def load_data(name, random_state):
         dataframe['timestamp'] = pd.to_numeric(dataframe['timestamp'])
         dataframe['timestamp'] = pd.to_datetime(dataframe['timestamp'], unit='s')
 
-    # TODO rest of datasets...
-
     # load Restaurant Data
-    if name == "Restaurant":
+    elif name == "Restaurant":
         reader = Reader(rating_scale=(0,2))
         dataframe = pd.read_csv("rest_data.csv")
-        data = Dataset.load_from_df(dataframe[["userID", "placeID", "rating"]], reader = reader)
-
+        dataframe.rename(columns={
+            "userID": "user",
+            "placeID": "item"
+        }, inplace=True)
+        data = Dataset.load_from_df(dataframe[["user", "item", "rating"]], reader = reader)
 
     # load Bookcrossing Data
-    if name == "BookCrossing":
+    elif name == "BookCrossing":
         reader = Reader(rating_scale=(0, 10))
         dataframe = pd.read_excel('BX-Users-Rating-New.xlsx')
-        data = Dataset.load_from_df(dataframe[["User-ID", "ISBN", "Book-Rating"]], reader=reader)
+        dataframe.rename(columns={
+            "User-ID": "user",
+            "ISBN": "item",
+            "Book-Rating": "rating"
+        }, inplace=True)
+        data = Dataset.load_from_df(dataframe[["user", "item", "rating"]], reader=reader)
 
     # split data in train test
     trainset, testset = train_test_split(data, test_size=0.3, random_state=random_state)
@@ -223,9 +230,17 @@ st.write(option_dataset)
 data = deepcopy(load_data(option_dataset, option_random_state))
 
 # show dataset stats
-st.write(data["dataframe"])
+st.write("First lines of dataset:")
+st.write(data["dataframe"].head(n=100))
+
+st.write("Dataset statistics:")
 st.write(data["dataframe"].describe(include='all'))
 
+st.write("Dataset distribution of ratings:")
+fig, ax = plt.subplots()
+ratings_dist = data["dataframe"]["rating"].value_counts()
+ax.bar(ratings_dist.index.to_list(), ratings_dist)
+st.pyplot(fig)
 
 st.subheader("Algorithms:")
 st.write(", ".join(option_algos))
