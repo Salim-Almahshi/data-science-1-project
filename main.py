@@ -91,8 +91,8 @@ def calc_map(predictions, k, threshold):
             if (n_rel_and_rec_k < n_rel_and_rec_k_new):
                 n_rel_and_rec_k = n_rel_and_rec_k_new
                 ap += n_rel_and_rec_k / n_rec_k if n_rec_k != 0 else 0
-        ap += ap / k
-        map += ap
+
+        map += ap / k
 
     map = map / user_number
     return map
