@@ -148,11 +148,22 @@ def load_data(name, random_state):
     # reformat to user -> item -> score
     testset_items_per_user = get_testset_items_per_user(testset)
 
+    # to calculate threshold for map : little bigger than median of the rating range
+    # "MovieLens", "BookCrossing", "Restaurant"
+    # if option_dataset == "MovieLens":
+    #    threshold = 3.5
+    # elif option_dataset == "BookCrossing":
+    #    threshold = 7.0
+    # elif option_dataset == "Restaurant":
+    #    threshold = 1.2
+    map_threshold = np.mean(np.array(dataframe["rating"].to_list()))
+
     return {
         "trainset": trainset,
         "testset": testset,
         "testset_items_per_user": testset_items_per_user,
-        "dataframe": dataframe
+        "dataframe": dataframe,
+        "map_threshold": map_threshold
     }
 
 
@@ -280,15 +291,6 @@ st.write(", ".join(option_algos))
 
 algos = train_model(options_algo_settings, data["trainset"])
 
-#to calculate threshold for map : little bigger than median of the rating range
-#"MovieLens", "BookCrossing", "Restaurant"
-if option_dataset == "MovieLens":
-    threshold = 3.5
-elif option_dataset == "BookCrossing":
-    threshold = 7.0
-elif option_dataset == "Restaurant":
-    threshold = 1.2
-
 # evaluate algos
 metrics = {}
 for algo in algos:
@@ -307,7 +309,7 @@ for algo in algos:
         "rmse": accuracy.rmse(predictions),
         "mae": accuracy.mae(predictions),
         "fcp": accuracy.fcp(predictions),
-        "map": calc_map(predictions, option_n, threshold)
+        "map": calc_map(predictions, option_n, data["map_threshold"])
     }
 
 all_metrics = pd.DataFrame(metrics)
