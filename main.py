@@ -64,6 +64,39 @@ def calc_ndcg(top_n, testset_items_per_user, n):
 
     return ndcg_score(y_trues, y_scores, k=None)
 
+def calc_map(predictions, k, threshold):
+
+    user_est_true = defaultdict(list)
+    for uid, _, true_r, est, _ in predictions:
+        user_est_true[uid].append((est, true_r))
+
+    map = 0.0
+    user_number = 0
+
+    for uid, user_ratings in user_est_true.items():
+        user_number += 1
+        # Sort user ratings by estimated value
+        user_ratings.sort(key=lambda x: x[0], reverse=True)
+
+        n_rel_and_rec_k = 0
+        ap = 0.0 # for average precision
+        for i in range(1,k+1):
+            # Number of recommended items in top k
+            n_rec_k = sum((est >= threshold) for (est, _) in user_ratings[:k])
+
+            # Number of relevant and recommended items in top k
+            n_rel_and_rec_k_new = sum(((true_r >= threshold) and (est >= threshold))
+                                  for (est, true_r) in user_ratings[:k])
+
+            if (n_rel_and_rec_k < n_rel_and_rec_k_new):
+                n_rel_and_rec_k = n_rel_and_rec_k_new
+                ap += n_rel_and_rec_k / n_rec_k if n_rec_k != 0 else 0
+        ap += ap / k
+        map += ap
+
+    map = map / user_number
+    return map
+
 
 @st.cache
 def load_data(name, random_state):
@@ -247,6 +280,15 @@ st.write(", ".join(option_algos))
 
 algos = train_model(options_algo_settings, data["trainset"])
 
+#to calculate threshold for map : little bigger than median of the rating range
+#"MovieLens", "BookCrossing", "Restaurant"
+if option_dataset == "MovieLens":
+    threshold = 3.5
+elif option_dataset == "BookCrossing":
+    threshold = 7.0
+elif option_dataset == "Restaurant":
+    threshold = 1.2
+
 # evaluate algos
 metrics = {}
 for algo in algos:
@@ -264,7 +306,8 @@ for algo in algos:
         "mse": accuracy.mse(predictions),
         "rmse": accuracy.rmse(predictions),
         "mae": accuracy.mae(predictions),
-        "fcp": accuracy.fcp(predictions)
+        "fcp": accuracy.fcp(predictions),
+        "map": calc_map(predictions, option_n, threshold)
     }
 
 all_metrics = pd.DataFrame(metrics)
