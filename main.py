@@ -160,12 +160,11 @@ def load_data(name, random_state):
 
     # load Bookcrossing Data
     elif name == "BookCrossing":
-        reader = Reader(rating_scale=(0, 10))
-        dataframe = pd.read_excel('BX-Users-Rating-Newr.xlsx')
+        reader = Reader(rating_scale=(0, 2))
+        dataframe = pd.read_csv("rest_data.csv")
         dataframe.rename(columns={
-            "User-ID": "user",
-            "ISBN": "item",
-            "Book-Rating": "rating"
+            "userID": "user",
+            "placeID": "item"
         }, inplace=True)
         data = Dataset.load_from_df(dataframe[["user", "item", "rating"]], reader=reader)
 
