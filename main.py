@@ -58,6 +58,10 @@ def calc_ndcg(top_n, testset_items_per_user, n):
     y_trues = []
     y_scores = []
 
+    if n == 0:
+        # update to largest
+        n = np.max([len(v) for v in testset_items_per_user.values()])
+
     for user in top_n:
         y_true = []
         y_score = []
@@ -82,7 +86,7 @@ def calc_ndcg(top_n, testset_items_per_user, n):
 
     return ndcg_score(y_trues, y_scores, k=None)
 
-def calc_map(predictions, k, threshold):
+def calc_map(predictions, k, map_threshold_per_user):
 
     user_est_true = defaultdict(list)
     for uid, _, true_r, est, _ in predictions:
@@ -95,6 +99,11 @@ def calc_map(predictions, k, threshold):
         user_number += 1
         # Sort user ratings by estimated value
         user_ratings.sort(key=lambda x: x[0], reverse=True)
+
+        if k == 0:
+            k = len(user_ratings)
+
+        threshold = map_threshold_per_user.loc[uid]["rating"]
 
         n_rel_and_rec_k = 0
         ap = 0.0 # for average precision
@@ -175,13 +184,15 @@ def load_data(name, random_state):
     # elif option_dataset == "Restaurant":
     #    threshold = 1.2
     map_threshold = np.mean(np.array(dataframe["rating"].to_list()))
+    map_threshold_per_user = dataframe.groupby("user").mean()
 
     return {
         "trainset": trainset,
         "testset": testset,
         "testset_items_per_user": testset_items_per_user,
         "dataframe": dataframe,
-        "map_threshold": map_threshold
+        "map_threshold": map_threshold,
+        "map_threshold_per_user": map_threshold_per_user
     }
 
 
@@ -242,7 +253,7 @@ option_dataset = st.sidebar.selectbox("Dataset", ["MovieLens", "BookCrossing", "
 option_random_state = st.sidebar.number_input("Random state", min_value=0)
 
 # evaluation settings
-option_n = st.sidebar.number_input("Top N recommendations", min_value=1, value=5)
+option_n = st.sidebar.number_input("Top N recommendations", min_value=0, value=5)
 option_k = st.sidebar.number_input("Recommendation prediction threshold", min_value=0.0, max_value=1.0, value=0.5)
 
 # algo selection, can select multiple
@@ -307,17 +318,21 @@ ax.set_ylabel("Count")
 st.pyplot(fig)
 
 st.write("Dataset distribution of ratings per user:")
-fig, ax = plt.subplots()
+fig, ax = plt.subplots(2, 1, sharex='all')
 user_ratings_counts = data['dataframe'].groupby(by=['user'])["rating"].count()
-ax.hist(user_ratings_counts)
-ax.set_xlabel("Rating count")
-ax.set_ylabel("User count")
+ax[0].hist(user_ratings_counts, bins=20)
+ax[0].set_xlabel("Rating count")
+ax[0].set_ylabel("User count")
+ax[1].hist(user_ratings_counts, bins=20)
+ax[1].set_yscale('log')
+ax[1].set_xlabel("Rating count")
+ax[1].set_ylabel("User count (log scale)")
 st.pyplot(fig)
 
 st.subheader("Algorithms:")
 st.write(", ".join(option_algos))
 
-algos = train_model(options_algo_settings, data["trainset"])
+algos = deepcopy(train_model(options_algo_settings, data["trainset"]))
 
 # evaluate algos
 metrics = {}
@@ -338,7 +353,7 @@ for algo in algos:
         "rmse": accuracy.rmse(filtered_predictions),
         "mae": accuracy.mae(filtered_predictions),
         #"fcp": accuracy.fcp(filtered_predictions),
-        "map": calc_map(predictions, option_n, data["map_threshold"])
+        "map": calc_map(predictions, option_n, data["map_threshold_per_user"])
     }
 
 all_metrics = pd.DataFrame(metrics)
