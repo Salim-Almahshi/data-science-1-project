@@ -23,9 +23,27 @@ def get_top_n(predictions, n, k):
 
     for uid, user_ratings in top_n.items():
         user_ratings.sort(key=lambda x: x[1], reverse=True)
-        top_n[uid] = user_ratings[:n]
+        if n > 0:
+            top_n[uid] = user_ratings[:n]
+        else:
+            top_n[uid] = user_ratings
 
     return top_n
+
+
+def filter_predictions_to_top_n_and_threshold_k(predictions, n, k):
+    filtered_predictions = []
+
+    for pred in predictions:
+        uid, iid, true_r, est, _ = pred
+        if est >= k:
+            filtered_predictions.append(pred)
+
+            if n > 0 and len(filtered_predictions) >= n:
+                break
+
+    return filtered_predictions
+
 
 
 def get_testset_items_per_user(testset):
@@ -308,6 +326,7 @@ for algo in algos:
 
     # get item predictions
     predictions = algos[algo].test(data["testset"])
+    filtered_predictions = filter_predictions_to_top_n_and_threshold_k(predictions, option_n, option_k)
 
     # get top n predictions
     top_n = get_top_n(predictions, n=option_n, k=option_k)
@@ -315,10 +334,10 @@ for algo in algos:
     # calculate metrics
     metrics[algo] = {
         "ndcg": calc_ndcg(top_n, data["testset_items_per_user"], n=option_n),
-        "mse": accuracy.mse(predictions),
-        "rmse": accuracy.rmse(predictions),
-        "mae": accuracy.mae(predictions),
-        "fcp": accuracy.fcp(predictions),
+        "mse": accuracy.mse(filtered_predictions),
+        "rmse": accuracy.rmse(filtered_predictions),
+        "mae": accuracy.mae(filtered_predictions),
+        #"fcp": accuracy.fcp(filtered_predictions),
         "map": calc_map(predictions, option_n, data["map_threshold"])
     }
 
