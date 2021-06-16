@@ -161,7 +161,7 @@ def load_data(name, random_state):
     # load Bookcrossing Data
     elif name == "BookCrossing":
         reader = Reader(rating_scale=(0, 10))
-        dataframe = pd.read_excel('BX-Users-Rating-Newrr.xlsx')
+        dataframe = pd.read_excel('BX-Books-Rating-New.xlsx')
         dataframe.rename(columns={
             "User-ID": "user",
             "ISBN": "item",
